@@ -44,18 +44,12 @@ if(USE_QWT)
         pkg_check_modules(QWT REQUIRED IMPORTED_TARGET
             Qt${QT_VERSION_MAJOR}Qwt6
         )
-        pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-            libavcodec
-            libavformat
-            libavutil
-        )
         pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
             fftw3
         )
     endif()
     if(WIN32)
         set(QWT_INCLUDE_DIRECTORY "C:\\qwt-6.2.0\\src")
-        set(LIBAV_LIBRARY "C:\\libav\\win64\\usr\\include")
         set(FFTW_LIBRARY "C:\\Program Files\\fftw")
     endif()
 endif()
@@ -111,9 +105,15 @@ add_executable(ld-ldf-reader
     ld-ldf-reader.c)    
 
 if(UNIX AND NOT APPLE)
+    pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+        libavcodec
+        libavformat
+        libavutil
+    )
     target_link_libraries(ld-ldf-reader PkgConfig::LIBAV )
 endif()
 if(WIN32)
+    set(LIBAV_LIBRARY "C:\\libav\\win64\\usr\\include")
     target_include_directories(ld-ldf-reader PRIVATE ${LIBAV_LIBRARY} )
 endif()
 
