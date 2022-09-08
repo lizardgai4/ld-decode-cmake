@@ -38,28 +38,24 @@ if(QT_VERSION VERSION_LESS 5.15)
     endforeach()
 endif()
 
-if(USE_QWT)
-    if(LINUX)
-        find_package(PkgConfig REQUIRED)
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    if(USE_QWT)
         pkg_check_modules(QWT REQUIRED IMPORTED_TARGET
             Qt${QT_VERSION_MAJOR}Qwt6
         )
-        pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-            libavcodec
-            libavformat
-            libavutil
-        )
-        pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
-            fftw3
-        )
     endif()
-    if(WIN32)
-        set(QWT_INCLUDE_DIRECTORY "C:\\qwt-6.2.0\\src")
-        set(LIBAV_LIBRARY "C:\\libav\\win64\\usr\\include")
-        set(FFTW_LIBRARY "C:\\Program Files\\fftw")
-    endif()
+    pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
+        fftw3
+    )
 endif()
 
+if(WIN32)
+    if(USE_QWT)
+        set(QWT_INCLUDE_DIRECTORY "C:\\qwt-6.2.0\\src")
+    endif()
+    set(FFTW_LIBRARY "C:\\Program Files\\fftw")
+endif()
 
 # Get the Git branch and revision
 
@@ -108,16 +104,21 @@ endif()
 # ld-ldf-reader
 
 add_executable(ld-ldf-reader
-    ld-ldf-reader.c)
+    ld-ldf-reader.c)    
 
-if(LINUX)
-    target_link_libraries(ld-ldf-reader PkgConfig::LIBAV)
+if(UNIX AND NOT APPLE)
+    pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+        libavcodec
+        libavformat
+        libavutil
+    )
+    target_link_libraries(ld-ldf-reader PkgConfig::LIBAV )
 endif()
+
 if(WIN32)
+    set(LIBAV_LIBRARY "C:\\libav\\win64\\usr\\include")
     target_include_directories(ld-ldf-reader PRIVATE ${LIBAV_LIBRARY} )
 endif()
-
-
 
 install(TARGETS ld-ldf-reader)
 
