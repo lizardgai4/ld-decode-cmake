@@ -21,7 +21,7 @@ include(GNUInstallDirs)
 set(CMAKE_AUTOUIC ON)
 
 find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets)
 message(STATUS "Qt Version: ${QT_VERSION}")
 
 # For Qt < 5.15, emulate 5.15's Qt5CoreConfig.cmake, so we don't have to
@@ -38,22 +38,24 @@ if(QT_VERSION VERSION_LESS 5.15)
     endforeach()
 endif()
 
-if(USE_QWT)
-    if(UNIX AND NOT APPLE)
-        find_package(PkgConfig REQUIRED)
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig REQUIRED)
+    if(USE_QWT)
         pkg_check_modules(QWT REQUIRED IMPORTED_TARGET
             Qt${QT_VERSION_MAJOR}Qwt6
         )
-        pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
-            fftw3
-        )
     endif()
-    if(WIN32)
-        set(QWT_INCLUDE_DIRECTORY "C:\\qwt-6.2.0\\src")
-        set(FFTW_LIBRARY "C:\\Program Files\\fftw")
-    endif()
+    pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
+        fftw3
+    )
 endif()
 
+if(WIN32)
+    if(USE_QWT)
+        set(QWT_INCLUDE_DIRECTORY "C:\\qwt-6.2.0\\src")
+    endif()
+    set(FFTW_LIBRARY "C:\\Program Files\\fftw")
+endif()
 
 # Get the Git branch and revision
 
@@ -112,12 +114,11 @@ if(UNIX AND NOT APPLE)
     )
     target_link_libraries(ld-ldf-reader PkgConfig::LIBAV )
 endif()
+
 if(WIN32)
     set(LIBAV_LIBRARY "C:\\libav\\win64\\usr\\include")
     target_include_directories(ld-ldf-reader PRIVATE ${LIBAV_LIBRARY} )
 endif()
-
-
 
 install(TARGETS ld-ldf-reader)
 
