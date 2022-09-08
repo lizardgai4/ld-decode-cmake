@@ -39,7 +39,7 @@ if(QT_VERSION VERSION_LESS 5.15)
 endif()
 
 if(USE_QWT)
-    if(LINUX)
+    if(UNIX AND NOT APPLE)
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(QWT REQUIRED IMPORTED_TARGET
             Qt${QT_VERSION_MAJOR}Qwt6
@@ -108,10 +108,10 @@ endif()
 # ld-ldf-reader
 
 add_executable(ld-ldf-reader
-    ld-ldf-reader.c)
+    ld-ldf-reader.c)    
 
-if(LINUX)
-    target_link_libraries(ld-ldf-reader PkgConfig::LIBAV)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(ld-ldf-reader PkgConfig::LIBAV )
 endif()
 if(WIN32)
     target_include_directories(ld-ldf-reader PRIVATE ${LIBAV_LIBRARY} )

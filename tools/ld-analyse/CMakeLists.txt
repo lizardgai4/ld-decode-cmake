@@ -22,7 +22,7 @@ qt_add_resources(ld-analyse_SOURCES ld-analyse-resources.qrc)
 add_executable(ld-analyse MACOSX_BUNDLE
     ${ld-analyse_SOURCES})
 
-if(LINUX)
+if(UNIX AND NOT APPLE)
     target_link_libraries(ld-analyse PRIVATE
         Qt::Core Qt::Gui Qt::Widgets
         PkgConfig::QWT
