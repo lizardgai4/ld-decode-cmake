@@ -36,6 +36,9 @@ add_executable(ld-chroma-decoder
 )
 
 if(UNIX AND NOT APPLE)
+    pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET
+        fftw3
+    )
     target_link_libraries(ld-chroma-decoder PRIVATE Qt::Core PkgConfig::FFTW lddecode-library lddecode-chroma)
 endif()
 if(WIN32)
