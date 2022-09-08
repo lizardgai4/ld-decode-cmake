@@ -22,13 +22,19 @@ qt_add_resources(ld-analyse_SOURCES ld-analyse-resources.qrc)
 add_executable(ld-analyse MACOSX_BUNDLE
     ${ld-analyse_SOURCES})
 
-target_link_libraries(ld-analyse PRIVATE
-    Qt::Core Qt::Gui Qt::Widgets
-    PkgConfig::QWT
-    lddecode-library lddecode-chroma
-)
-
+if(LINUX)
+    target_link_libraries(ld-analyse PRIVATE
+        Qt::Core Qt::Gui Qt::Widgets
+        PkgConfig::QWT
+        lddecode-library lddecode-chroma
+    )
+endif()
 if(WIN32)
+    target_link_libraries(ld-analyse PRIVATE
+        Qt::Core Qt::Gui Qt::Widgets
+        QWT
+        lddecode-library lddecode-chroma
+    )
     target_compile_definitions(ld-analyse PRIVATE
         NOMINMAX
         QUSB_LIBRARY

@@ -14,7 +14,15 @@ add_library(lddecode-chroma STATIC
 
 target_include_directories(lddecode-chroma PUBLIC .)
 
-target_link_libraries(lddecode-chroma PRIVATE Qt::Core PkgConfig::FFTW lddecode-library)
+if(USE_QWT)
+    if(LINUX)
+        target_link_libraries(lddecode-chroma PRIVATE Qt::Core PkgConfig::FFTW lddecode-library)
+    endif()
+    if(WIN32)
+        set(FFTW_LIBRARY "C:\\Program Files\\fftw")
+        target_link_libraries(lddecode-chroma PRIVATE Qt::Core FFTW lddecode-library)
+    endif()
+endif()
 
 # ld-chroma-decoder
 
@@ -27,6 +35,6 @@ add_executable(ld-chroma-decoder
     paldecoder.cpp
 )
 
-target_link_libraries(ld-chroma-decoder PRIVATE Qt::Core lddecode-library lddecode-chroma)
+target_link_libraries(ld-chroma-decoder PRIVATE Qt::Core FFTW lddecode-library lddecode-chroma)
 
 install(TARGETS ld-chroma-decoder)
