@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
     }
     
     // Load the raw RF capture
-    LDdecode ldd;
+    LDdecode ldd = new LDdecode(/*all sorts of variables, including Dropout Detector and Analog Audio*/);
     if (!ldd.read(inputFileName, inputFrequency)) {
         qInfo() << "Unable to open ldf file";
         return -1;
@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
     bool done = false;
 
     while(!done && ldd.fields_written < length) {
-
+        //ignore leadout is referenced here
     }
 
     cout << "\nCompleted: saving JSON and exiting";
