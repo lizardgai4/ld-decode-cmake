@@ -381,6 +381,10 @@ int main(int argc, char *argv[])
         extraFloats.insert(pair<String,float>("deemp_low",parser.value(deempLowOption)));
     }
 
+    if (parser.isSet(deempHighOption)) {
+        extraFloats.insert(pair<String,float>("deemp_high",parser.value(deempHighOption)));
+    }
+
     if (parser.isSet(audioFilterwidthOption)) {
         extraFloats.insert(pair<String,float>("audio_filterwidth",parser.value(audioFilterwidthOption)));
     }
