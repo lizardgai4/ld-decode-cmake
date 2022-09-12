@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include "biquad.h"
 
 class RFDecode {
     /*The core RF decoding code.
@@ -57,6 +58,9 @@ public:
     std::string* runfilterAudioPhase2();
 
     void audioPhase2(float mtfLevel);
+
+    //Former members of the Filters dictionary
+    std::vector<std::complex<double>> filtersFefm;
 
     //Semantic ints for sysParams (NTSC and PAL)
     static const unsigned short FPS = 0;
@@ -117,7 +121,7 @@ private:
     bool ntscColorNotchFilter;
     bool palV4300DNotchFilter;
     bool lowband;
-    bool decodeAnalogAudio;
+    int decodeAnalogAudio;
     bool hasAnalogAudio;
 
     float freq;

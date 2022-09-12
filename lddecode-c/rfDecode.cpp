@@ -31,6 +31,13 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
+#include <cfloat>
+#include <complex>
+#include <fftw3.h>
+
+#include "spline.h" //from https://kluge.in-chemnitz.de/opensource/spline/ https://github.com/ttk592/spline
+#include "butterworth.h" //from https://github.com/ruohoruotsi/Butterworth-Filter-Design
 
 #include "rfDecode.h"
 
@@ -286,17 +293,18 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
 
     if(extraFloats.count("deemp_low") && extraFloats["deemp_low"] > 0) {
         decoderParams[DEEMP_LOW] = extraFloats["deemp_low"];
-    } else {
-        decoderParams[DEEMP_LOW] = 0;
     }
 
-    if(extraFloats.count("deemp_high")) {
+    if(extraFloats.count("deemp_high") && extraFloats["deemp_low"] > 0) {
         decoderParams[DEEMP_HIGH] = extraFloats["deemp_high"];
-    } else {
-        decoderParams[DEEMP_HIGH] = 0;
     }
 
     lineLen = (int)(freqHz / (10e6 / sysParams[LINE_PERIOD]));
+
+    /*How much horizontal sync position can deviate from previous/expected position
+    and still be interpreted as a horizontal sync pulse.
+    Too high tolerance may result in false positive sync pulses, too low may end up missing them.
+    Tapes will need a wider tolerance than laserdiscs due to head switch etc.*/
 
     hsyncTolerance = 0.4;
 
@@ -306,14 +314,148 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
 
     //computeFilters();
 
+    /*The 0.5mhz filter is rolled back to align with the data, so there
+    are a few unusable samples at the end.*/
     //blockcutEnd = filters["F05_offset"];
 };
 
-void RFDecode::computeFilters() {}
+void RFDecode::computeFilters() {
+    computeVideoFilters();
 
-void RFDecode::computeEfmFilter() {}
+    if(decodeAnalogAudio != 0) {
+        computeAudioFilters();
+    }
 
-void RFDecode::computeVideoFilters() {}
+    if(decodeDigitalAudio) {
+        computeEfmFilter();
+    }
+
+    //computeDelays();
+}
+
+void RFDecode::computeEfmFilter() {
+    /*Frequency-domain equalisation filter for the LaserDisc EFM signal.
+    This was inspired by the input signal equaliser in WSJT-X, described in
+    Steven J. Franke and Joseph H. Taylor, "The MSK144 Protocol for
+    Meteor-Scatter Communication", QEX July/August 2017.
+    <http://physics.princeton.edu/pulsar/k1jt/MSK144_Protocol_QEX.pdf>
+
+    This improved EFM filter was devised by Adam Sampson (@atsampson)*/
+
+    //Frequency bands
+    std::vector<double> freqs = linspace(0.0, 1900000.0, 11);
+    double freqPerBin = freqHz / blocklen;
+
+    //Amplitude and phase adjustments for each band.
+    //These values were adjusted empirically based on a selection of NTSC and PAL samples.
+
+    std::vector<double> amp = {0.0, 0.215, 0.41, 0.73, 0.98, 1.03, 0.99, 0.81, 0.59, 0.42, 0.0};
+    std::vector<double> phase = {0.0, -0.92, -1.03, -1.11, -1.2, -1.2, -1.2, -1.2, -1.05, -0.95, -0.8};
+
+    for(int i = 0; i < sizeof(phase) / sizeof(int); i++) {
+        phase[i] *= 1.25;
+    }
+
+    //Compute filter coefficients for the given FFTFilter.
+    //Anything above the highest frequency is left as zero.
+    std::vector<std::complex<double>> coeffs;
+
+    //Generate the frequency-domain coefficients by cubic interpolation between the equaliser values.
+    tk::spline aInterp(freqs, amp);
+    tk::spline pInterp(freqs, phase);
+
+    int nonzeroBins = (int)(freqs.back() / freqPerBin) + 1;
+
+    //bin_freqs = np.arange(nonzero_bins) * freq_per_bin
+    std::vector<double> binFreqs = arange(nonzeroBins, freqPerBin);
+    //bin_amp = a_interp(bin_freqs)
+    std::vector<double> binAmp;
+    for(auto number : binFreqs) { binAmp.push_back(aInterp.solve(number).front()); }
+    //bin_phase = p_interp(bin_freqs)
+    std::vector<double> binPhase;
+    for(auto number : binFreqs) { binAmp.push_back(pInterp.solve(number).front()); }
+
+    //Scale by the amplitude, rotate by the phase
+    /*coeffs[:nonzero_bins] = bin_amp * (
+        np.cos(bin_phase) + (complex(0, -1) * np.sin(bin_phase))
+    )*/
+    int i = 0;
+    for( ; i < nonzeroBins; i++) {
+        filtersFefm.push_back(binAmp[i] * 8 * (
+            cos(binPhase[i]) + (std::complex<double>(0, -1) * sin(binPhase[i]))
+        ));
+    }
+
+    //Anything above the highest frequency is left as zero.
+    for( ; i < blocklen; i++) {
+        filtersFefm.push_back(std::complex<double>(0,0));
+    }
+}
+
+//helper function for computeEfmFilter()
+std::vector<double> linspace(double start, double end, int num)
+{
+    std::vector<double> linspaced;
+
+    int delta = (end - start) / (num - 1);
+
+    for(int i=0; i < num-1; ++i) {
+        linspaced.push_back(start + delta * i);
+    }
+    linspaced.push_back(end); // I want to ensure that start and end
+                              // are exactly the same as the input
+    return linspaced;
+}
+
+//another helper function for computeEfmFilter()
+std::vector<double> arange(int end, double num)
+{
+    std::vector<double> aranged;
+
+    for(int i=0; i < end; i++) {
+        aranged.push_back(i * num);
+    }
+
+    return aranged;
+}
+
+void RFDecode::computeVideoFilters() {
+    int filterOrder = 1;
+    double overallGain = 1.0;
+    
+    vector <Biquad> coeffs;  // second-order sections (sos)
+    Butterworth butterworth;
+    
+    bool designedCorrectly = butterworth.hiPass(
+        freqHz,         // fs
+        1,              // freq1, unused in hiPass
+        (10/freqHalf),  // freq2
+        filterOrder,
+        coeffs,
+        overallGain
+    );
+    
+    //******************************************************************************
+    //  MATLAB coefficients: first section
+    //******************************************************************************
+    
+    double b0 = 1.0;
+    double b1 = -2.0;
+    double b2 = 1.0;
+    // double a0 = 1.0;
+    double a1 = -1.96762058043629 * (-1);
+    double a2 = 0.97261960500367  * (-1);
+    
+    int i = 0;
+    
+    /*REQUIRE(abs(b0 - coeffs[i].b0) <= EPSILON);
+    REQUIRE(abs(b1 - coeffs[i].b1) <= EPSILON);
+    REQUIRE(abs(b2 - coeffs[i].b2) <= EPSILON);
+    REQUIRE(abs(a1 - coeffs[i].a1) <= EPSILON);
+    REQUIRE(abs(a2 - coeffs[i].a2) <= EPSILON);*/
+
+    //self.Filters["Frfhpf"] = filtfft(Frfhpf, self.blocklen)
+}
 
 void RFDecode::computeAudioFilters() {}
 
@@ -321,7 +463,9 @@ float RFDecode::ireToHz(float ire) {}
 
 float RFDecode::hzToIre(float hz) {}
 
-std::string* RFDecode::demodBlock() {}
+std::string* RFDecode::demodBlock() {
+    //rv["rfhpf"] = npfft.ifft(indata_fft * self.Filters["Frfhpf"]).real
+}
 
 std::string* RFDecode::runfilterAudioPhase2() {}
 
