@@ -61,6 +61,10 @@ public:
 
     //Former members of the Filters dictionary
     std::vector<std::complex<double>> filtersFefm;
+    std::vector<std::complex<double>> filtersMTF[2];
+
+    static const unsigned short SYS_PARAM_COUNT = 30;
+    static float sysParams[SYS_PARAM_COUNT];
 
     //Semantic ints for sysParams (NTSC and PAL)
     static const unsigned short FPS = 0;
@@ -93,6 +97,9 @@ public:
     static const unsigned short OUTLINELEN = 27;
     static const unsigned short OUTLINELEN_PILOT = 28;
     static const unsigned short OUTFREQ = 29;
+
+    static const unsigned short RF_PARAM_COUNT = 16;
+    static float rfParams[RF_PARAM_COUNT];
 
     //Semantic ints for rfParams (NTSC and PAL)
     static const unsigned short AUDIO_NOTCHWIDTH = 0;
@@ -131,8 +138,6 @@ private:
 
     float mtfMult;
     float mtfOffset;
-
-    float* sysParams;
 
     float* decoderParams;
 

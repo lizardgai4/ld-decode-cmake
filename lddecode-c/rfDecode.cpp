@@ -28,6 +28,8 @@
     1 - https://en.wikipedia.org/wiki/Overlap–save_method
  */
 
+#define _USE_MATH_DEFINES
+
 #include <iostream>
 #include <map>
 #include <string>
@@ -35,6 +37,7 @@
 #include <cfloat>
 #include <complex>
 #include <fftw3.h>
+#include <math.h>
 
 #include "spline.h" //from https://kluge.in-chemnitz.de/opensource/spline/ https://github.com/ttk592/spline
 #include "butterworth.h" //from https://github.com/ruohoruotsi/Butterworth-Filter-Design
@@ -90,7 +93,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
     //-100.0 means "will be set after initialization"
 
     //These are invariant parameters for PAL and NTSC
-    float sysParamsNTSC[30] = {
+    float sysParamsNTSC[SYS_PARAM_COUNT] = {
         -100.0, //FPS
         (315.0 / 88.0), //fsc_mhz
         (315.0 / 88.0), //pilot_mhz
@@ -140,7 +143,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
 
     //PAL params
 
-    float sysParamsPAL[30] = {
+    float sysParamsPAL[SYS_PARAM_COUNT] = {
         25.0, //FPS
         ((1.0 / 64.0) * 283.75) + (25.0 / 10e6), //fsc_mhz
         3.75, //pilot_mhz
@@ -188,7 +191,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
     sysParamsPAL[VSYNC_IRE] = -0.3 * (100.0 / 0.7);
 
     //RF params for NTSC and PAL
-    float rfParamsNTSC[16] = {
+    float rfParamsNTSC[RF_PARAM_COUNT] = {
         350000.0, //audio_notchwidth
         2.0, //audio_notchorder
         120e-9, //video_deemp[0]
@@ -207,7 +210,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
         512.0 //audio_filterorder
     };
 
-    float rfParamsNTSClowband[16] = {
+    float rfParamsNTSClowband[RF_PARAM_COUNT] = {
         350000.0, //audio_notchwidth
         2.0, //audio_notchorder
         120e-9, //video_deemp[0]
@@ -226,7 +229,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
         512.0 //audio_filterorder
     };
 
-    float rfParamsPAL[16] = {
+    float rfParamsPAL[RF_PARAM_COUNT] = {
         200000.0, //audio_notchwidth
         2.0, //audio_notchorder
         100e-9, //video_deemp[0]
@@ -245,7 +248,7 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
         900.0 //audio_filterorder
     };
 
-    float rfParamsPALlowband[16] = {
+    float rfParamsPALlowband[RF_PARAM_COUNT] = {
         200000.0, //audio_notchwidth
         2.0, //audio_notchorder
         100e-9, //video_deemp[0]
@@ -265,18 +268,16 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
     };
 
     if(system == "NTSC") {
-        sysParams = &sysParamsNTSC[0];
         if(lowband) {
-            decoderParams = &rfParamsNTSClowband[0];
+            deepCopy(sysParamsNTSC, rfParamsNTSClowband);
         } else {
-            decoderParams = &rfParamsNTSC[0];
+            deepCopy(sysParamsNTSC, rfParamsNTSC);
         }
     } else if (system == "PAL") {
-        sysParams = &sysParamsPAL[0];
         if(lowband) {
-            decoderParams = &rfParamsPALlowband[0];
+            deepCopy(sysParamsPAL, rfParamsPALlowband);
         } else {
-            decoderParams = &rfParamsPAL[0];
+            deepCopy(sysParamsPAL, rfParamsPAL);
         }
     }
 
@@ -319,6 +320,16 @@ RFDecode::RFDecode(int frequencies[], std::string _system, int _blocklen, bool d
     //blockcutEnd = filters["F05_offset"];
 };
 
+//Helper function for the constructor
+void deepCopy(float* sysParamsTemplate, float* rfParamsTemplate) {
+    for(int i = 0; i < RFDecode::SYS_PARAM_COUNT; i++) {
+        RFDecode::sysParams[i] = sysParamsTemplate[i];
+    }
+    for(int i = 0; i < RFDecode::RF_PARAM_COUNT; i++) {
+        RFDecode::rfParams[i] = rfParamsTemplate[i];
+    }
+}
+
 void RFDecode::computeFilters() {
     computeVideoFilters();
 
@@ -343,7 +354,7 @@ void RFDecode::computeEfmFilter() {
     This improved EFM filter was devised by Adam Sampson (@atsampson)*/
 
     //Frequency bands
-    std::vector<double> freqs = linspace(0.0, 1900000.0, 11);
+    std::vector<double> freqs = linspace(0.0, 1900000.0, 11, true);
     double freqPerBin = freqHz / blocklen;
 
     //Amplitude and phase adjustments for each band.
@@ -392,12 +403,17 @@ void RFDecode::computeEfmFilter() {
     }
 }
 
-//helper function for computeEfmFilter()
-std::vector<double> linspace(double start, double end, int num)
+//helper function for computeEfmFilter() and computeVideoFilters()
+std::vector<double> linspace(double start, double end, int num, bool endpoint = true)
 {
     std::vector<double> linspaced;
 
-    int delta = (end - start) / (num - 1);
+    int delta;
+    if(endpoint) {
+        delta = (end - start) / (num - 1);
+    } else {
+        delta = (end - start) / (num);
+    }
 
     for(int i=0; i < num-1; ++i) {
         linspaced.push_back(start + delta * i);
@@ -455,6 +471,35 @@ void RFDecode::computeVideoFilters() {
     REQUIRE(abs(a2 - coeffs[i].a2) <= EPSILON);*/
 
     //self.Filters["Frfhpf"] = filtfft(Frfhpf, self.blocklen)
+
+    double mtfPolefLo = decoderParams[MTF_FREQ] / freqHalf;
+    double mtfPolefHi = (freqHalf + (freqHalf - decoderParams[MTF_FREQ])) / freqHalf;
+
+    /*MTF = sps.zpk2tf([],[polar2z(DP["MTF_poledist"], np.pi * MTF_polef_lo),
+    polar2z(DP["MTF_poledist"], np.pi * MTF_polef_hi),],1,)*/
+
+    filtersMTF[0].push_back(1.0);
+    filtersMTF[1].push_back(1.0);
+    std::complex<double> p1 = polar2z(decoderParams[MTF_POLEDIST],
+        M_PI * mtfPolefLo);
+    std::complex<double> p2 = polar2z(decoderParams[MTF_POLEDIST],
+        M_PI * mtfPolefHi);
+    filtersMTF[1].push_back(-p1 - p2);
+    filtersMTF[1].push_back(p1 * p2);
+    
+    //SF["MTF"] = filtfft(MTF, self.blocklen)
+    double lastpoint = M_PI * 2;
+    double filtersMTF2 = linspace(0, lastpoint, blocklen, true)[1];
+}
+
+//Helper function for computeVideoFilters
+std::complex<double> polar2z(double r, double theta) {
+    return r * pow(M_E, std::complex<double>(0.0, 1.0) * theta);
+}
+
+//Another helper function for computeVideoFilters
+void zpk2tf(std::complex<double>* p, double k) {
+    double b = k;
 }
 
 void RFDecode::computeAudioFilters() {}
