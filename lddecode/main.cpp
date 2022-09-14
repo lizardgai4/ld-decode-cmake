@@ -27,11 +27,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <iostream>
-#include </usr/include/python3.10/Python.h>
-//#include <Python.h>
-
-//extra dependencies for Python
-//#include <pylifecycle.h>
+#include <Python.h>
 
 int main(int argc, char *argv[])
 {
