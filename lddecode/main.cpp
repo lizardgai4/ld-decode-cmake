@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
         outputFileName = positionalArguments.at(1);
     } else if (positionalArguments.count() == 1) {
         inputFileName = positionalArguments.at(0);
-        std::cout << inputFileName.toStdString() << std::endl;
+        //std::cout << inputFileName.toStdString() << std::endl;
     } else {
         // Quit with error
         qCritical("You must specify the input ldf file");
@@ -407,37 +407,27 @@ int main(int argc, char *argv[])
     //Python execution goes here
     Py_Initialize();
 
-    //std::cout << inputFileName.toStdString() << std::endl;
-
     const unsigned short inputLength = inputFileName.length();
 
-    wchar_t* input[inputLength];
+    wchar_t input[512];
 
-    std::cout << "memory allocated" << std::endl;
+    int irrelevent = inputFileName.toWCharArray(input);
+    ~irrelevent;
 
-    inputFileName.toWCharArray(*input);
     wchar_t* params[3];
     params[0] = L"ld-decode";
-    params[1] = *input;
+    params[1] = input;
     params[2] = L"-";
-
-    std::cout << "params[1] = " << (char)params[1][1] << std::endl;
 
     Py_SetProgramName(L"ld-decode");
 
     PySys_SetArgv(3, params);
 
-    std::cout << "input" << std::endl;
-
     FILE* ldDecodePython;
     ldDecodePython = fopen("ld-decode", "r");
 
-    std::cout << "File opened" << std::endl;
-
     PyRun_AnyFile(ldDecodePython, "ld-decode");
-
-    std::cout << "File executed" << std::endl;
-
+    
     if(Py_FinalizeEx() < 0) {
         exit(120);
     }
