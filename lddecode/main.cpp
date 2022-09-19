@@ -28,6 +28,7 @@
 #include <fstream>
 #include <memory>
 #include <iostream>
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
@@ -342,20 +343,23 @@ int main(int argc, char *argv[])
     }*/
 
     //Python execution goes here
+    FILE* ldDecodePython;
+    ldDecodePython = fopen("ld-decode", "r");
+
     Py_Initialize();
 
     Py_SetProgramName(L"ld-decode");
 
     wchar_t input[512];
 
-    FILE* ldDecodePython;
-    ldDecodePython = fopen("ld-decode", "r");
-
     inputFileName.toWCharArray(input);
+    const unsigned short inputLength = inputFileName.toStdString().length();
 
     wchar_t* params[3];
     params[0] = L"ld-decode";
+    params[1] = (wchar_t*)malloc(inputLength + 1);
     params[1] = input;
+    params[1][inputLength] = L'\0';
     params[2] = L"-";
 
     PySys_SetArgv(3, params);
